@@ -11,6 +11,11 @@ pub trait Value<const N: usize>: Sized {
 type CodePos = (u16, u16);
 
 
+pub struct CodeRef {
+    pos: usize,
+    size: usize,
+}
+
 pub struct Chunk {
     name: String,
     /// Stores the actual byte code instruction set
@@ -33,13 +38,14 @@ impl Chunk {
 
     /// Writes a single bytecode instruction to the chunk and returns the instruction index of the
     /// opcode.
-    pub fn write(&mut self, b: OpCode, line: u16, char: u16) -> usize {
+    pub fn write(&mut self, b: OpCode, line: u16, char: u16) -> CodeRef {
         let i = self.code.len();
         b.write(|c| {
             self.code.push(c);
             self.lines.push((line, char));
         });
-        i
+        let size = self.code.len() - i;
+        CodeRef { pos: i, size, }
     }
 
     /// Clears all values in the chunk

@@ -9,6 +9,7 @@ use crate::lang::tuple::FerrumTuple;
 
 
 pub type Namespace = String;
+pub const PTR_SIZE: usize = 8;
 
 
 
@@ -27,6 +28,24 @@ pub enum FerrumType {
     MutRef(Box<FerrumType>),
     MutPtr(Box<FerrumType>),
 }
+
+impl FerrumType {
+    /// Returns the size of the type in bytes.
+    pub fn size(&self) -> usize {
+        match self {
+            FerrumType::Elementary(s) => *s as usize,
+            FerrumType::Struct(s) => s.size(),
+            FerrumType::Enum(e) => e.size(),
+            FerrumType::Tuple(t) => t.size(),
+            FerrumType::Ref(_) => PTR_SIZE,
+            FerrumType::Ptr(_) => PTR_SIZE,
+            FerrumType::MutRef(_) => PTR_SIZE,
+            FerrumType::MutPtr(_) => PTR_SIZE,
+        }
+    }
+}
+
+
 
 /// A generic template is a template structure that can be used to generate templated functions,
 /// structs or enums with the requested generics table.

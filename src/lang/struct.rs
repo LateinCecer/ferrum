@@ -17,6 +17,7 @@ pub struct FerrumStruct {
     /// by hashing the generic data types.
     generic_fingerprint: u64,
     namespace: Namespace,
+    size: usize,
 }
 
 impl PartialEq for FerrumStruct {
@@ -39,11 +40,35 @@ impl Hash for FerrumStruct {
 struct FerrumStructMember {
     name: String,
     ty: FerrumType,
+    offset: usize,
 }
 
+
+
 impl FerrumStruct {
+    /// Returns true, if the struct has been generated from a `FerrumStructTemplate` using the
+    /// specified generics table.
     pub fn matches_generics(&self, generics: &FerrumGenericsTable) -> bool {
         self.generic_fingerprint == *generics.fingerprint()
+    }
+
+    /// Recalculates the alignment of member fields for the struct.
+    ///
+    /// # Alignment
+    /// At the moment, everything in the struct will be tightly packed and in an arbitrary order.
+    /// In the future, additional alignment options will be available.
+    pub fn align(&mut self) {
+        let mut offset = 0usize;
+        self.fields.iter_mut().for_each(|(_, f)| {
+            f.offset = offset;
+            offset += f.ty.size();
+        });
+        self.size = offset;
+    }
+
+    /// Returns the byte size of the struct
+    pub fn size(&self) -> usize {
+        self.size
     }
 }
 
@@ -73,6 +98,7 @@ impl GenericTemplate for FerrumStructTemplateMember {
         Some(FerrumStructMember {
             name: self.name.clone(),
             ty: table[self.generic_type].clone(),
+            offset: 0,
         })
     }
 }
@@ -86,11 +112,16 @@ impl GenericTemplate for FerrumStructTemplate {
             fields.insert(name.clone(), field.generate_type(table)?);
         }
 
-        Some(FerrumStruct {
+        let mut s = FerrumStruct {
             name: self.name.clone(),
             fields,
             generic_fingerprint: *table.fingerprint(),
             namespace: self.namespace.clone(),
-        })
+            size: 0,
+        };
+        // make alignment
+        s.align();
+
+        Some(s)
     }
 }

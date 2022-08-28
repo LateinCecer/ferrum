@@ -7,3 +7,5 @@ mod types;
 mod function;
 mod variable;
 mod tuple;
+mod compiler;
+mod error;

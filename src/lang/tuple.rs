@@ -2,7 +2,32 @@ use crate::lang::types::{FerrumGenerics, FerrumGenericsTable, FerrumGenericType,
 
 #[derive(Debug, PartialEq, Hash)]
 pub struct FerrumTuple {
-    members: Vec<FerrumType>,
+    members: Vec<FerrumTupleMember>,
+    size: usize,
+}
+
+#[derive(Debug, PartialEq, Hash)]
+struct FerrumTupleMember {
+    ty: FerrumType,
+    offset: usize,
+}
+
+impl FerrumTuple {
+
+    /// Realigns the tuple types and recalculates the total byte size.
+    pub fn align(&mut self) {
+        let mut offset = 0usize;
+        self.members.iter_mut().for_each(|m| {
+            m.offset = offset;
+            offset += m.ty.size();
+        });
+        self.size = offset;
+    }
+
+    /// Returns the total byte size of the tuple.
+    pub fn size(&self) -> usize {
+        self.size
+    }
 }
 
 pub struct FerrumTupleTemplate {
@@ -14,10 +39,19 @@ impl GenericTemplate for FerrumTupleTemplate {
 
     fn generate_type(&self, table: &FerrumGenericsTable) -> Option<Self::Final> {
         let members: Vec<_> = self.members.iter()
-            .map(|m| m.try_generate_type(table).unwrap())
+            .map(|m| {
+                FerrumTupleMember {
+                    ty: m.try_generate_type(table).unwrap(),
+                    offset: 0,
+                }
+            })
             .collect();
-        Some(FerrumTuple {
-            members
-        })
+
+        let mut t = FerrumTuple {
+            members,
+            size: 0,
+        };
+        t.align();
+        Some(t)
     }
 }

@@ -8,6 +8,7 @@ pub struct FerrumEnum {
     namespace: Namespace,
     members: HashMap<String, FerrumEnumMember>,
     generic_fingerprint: u64,
+    size: usize,
 }
 
 impl PartialEq for FerrumEnum {
@@ -31,12 +32,37 @@ impl Hash for FerrumEnum {
 struct FerrumEnumMember {
     name: String,
     id: u8,
-    args: Vec<FerrumType>,
+    args: Vec<FerrumEnumParameter>,
+}
+
+#[derive(Debug)]
+struct FerrumEnumParameter {
+    ty: FerrumType,
+    offset: usize,
 }
 
 impl FerrumEnum {
     pub fn matches_generics(&self, generics: &FerrumGenericsTable) -> bool {
         self.generic_fingerprint == *generics.fingerprint()
+    }
+
+    /// Realigned enum member parameters and recalculates the size of the enum type.
+    pub fn align(&mut self) {
+        let mut size = 0usize;
+        for (_, m) in self.members.iter_mut() {
+            let mut offset = 0usize;
+            m.args.iter_mut().for_each(|a| {
+                a.offset = offset;
+                offset += a.ty.size();
+            });
+            size = usize::max(offset, size);
+        }
+        self.size = size;
+    }
+
+    /// Returns the size of the enum type in bytes.
+    pub fn size(&self) -> usize {
+        self.size
     }
 }
 
@@ -67,12 +93,15 @@ impl GenericTemplate for FerrumEnumTemplate {
             members.insert(name.clone(), mem.generate_type(table)?);
         }
 
-        Some(FerrumEnum {
+        let mut e = FerrumEnum {
             name: self.name.clone(),
             namespace: self.namespace.clone(),
             members,
             generic_fingerprint: *table.fingerprint(),
-        })
+            size: 0,
+        };
+        e.align();
+        Some(e)
     }
 }
 
@@ -81,7 +110,12 @@ impl GenericTemplate for FerrumEnumMemberTemplate {
 
     fn generate_type(&self, table: &FerrumGenericsTable) -> Option<Self::Final> {
         let mut args: Vec<_> = self.args.iter()
-            .map(|arg| arg.try_generate_type(table).unwrap())
+            .map(|arg| {
+                FerrumEnumParameter {
+                    ty: arg.try_generate_type(table).unwrap(),
+                    offset: 0
+                }
+            })
             .collect();
 
         Some(FerrumEnumMember {

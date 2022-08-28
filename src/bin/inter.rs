@@ -1,7 +1,5 @@
-use std::error::Error;
 use ferrum::bytecode::chunk::Chunk;
 use ferrum::bytecode::opcode::{NumeralType, OpCode};
-use ferrum::bytecode::values::*;
 use ferrum::vm::VM;
 
 fn main() -> Result<(), ()> {
